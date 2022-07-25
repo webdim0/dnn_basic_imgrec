@@ -8,5 +8,5 @@ Client side – https://github.com/webdim0/dnn_basic_imgrec/tree/main/client
 
 Server side – https://github.com/webdim0/dnn_basic_imgrec/tree/main/server
 
-<img alt="Home page" src="./client/src/assets/home-page.png" style="vertical-align:top; margin:0 20px 20px 0; width: 200px;">
-<img alt="Dataset page" src="./client/src/assets/dataset-page.png" width="300">
+<img alt="Home page" src="./client/src/assets/home-page.png" style="vertical-align:top; margin:0 20px 20px 0; width: 150px;">
+<img alt="Dataset page" src="./client/src/assets/dataset-page.png" width="250">
