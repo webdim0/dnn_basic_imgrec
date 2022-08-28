@@ -13,6 +13,7 @@ const imgsDir = path.resolve(__dirname, `../../public/${process.env.IMGS_DIR}`);
 const imgsPredictDir = path.resolve(__dirname, `../../public/${process.env.IMGS_PREDICT_DIR}`);
 
 const imageSmallSize = process.env.IMAGE_SMALL_SIZE.split(' ');
+const imageSmallCNNSize = process.env.IMAGE_SMALL_CNN_SIZE.split(' ');
 
 export default {
     async saveOriginal (imgBodyBase64, label, mode='data-set') {        
@@ -42,8 +43,17 @@ export default {
                 tf.tidy(() => {            
                     const originTensor = tf.node.decodePng(originImage);
                     const smallTensor = this.prepareImageTensor(originTensor);            
+                    const smallTensorCNN = this.prepareImageTensorCNN(originTensor);            
                     tf.node.encodePng(smallTensor).then( savePng => {
                         fs.writeFile(`${dir}/prepared/${imgFileName}`, savePng, err => {
+                            if (err) {
+                                reject(err);
+                            }
+                            resolve(imgFileName);
+                        });
+                    });
+                    tf.node.encodePng(smallTensorCNN).then( savePng => {
+                        fs.writeFile(`${dir}/prepared_cnn/${imgFileName}`, savePng, err => {
                             if (err) {
                                 reject(err);
                             }
@@ -70,6 +80,73 @@ export default {
         fs.unlink(`${imgsDir}/prepared/${imgFileName}`, (err) => {
             if (err) throw err;            
         });
+        fs.unlink(`${imgsDir}/prepared_cnn/${imgFileName}`, (err) => {
+            if (err) throw err;            
+        });
+    },
+
+    cropAndCenterImageTensor (originTensor) { 
+        const arr = originTensor.arraySync();
+        let fromRow = 0;
+        for (let i=0; i < arr.length; i++) {
+            const sum = arr[i].reduce((a, b) => a + b, 0);  
+            if (sum === 0) {
+                fromRow++;
+            } else {
+                break;
+            }
+        }           
+        let toRow = arr.length;                      
+        for (let i=arr.length-1; i > 0; i--) {
+            const sum = arr[i].reduce((a, b) => a + b, 0);  
+            if (sum === 0) {
+                toRow--;
+            } else {
+                break;
+            }
+        }
+        const countRow = toRow - fromRow;
+
+        const colsCount = arr[0].length;
+        let fromCol = 0;
+        for (let j=0; j < colsCount; j++) {        
+            let sum = 0;
+            for (let i=0; i < arr.length; i++) {
+                sum += arr[i][j];
+            }
+            if (sum === 0) {
+                fromCol++;
+            } else {
+                break;
+            }
+        }
+        let toCol = colsCount;
+        for (let j=colsCount-1; j > 0; j--) {        
+            let sum = 0;
+            for (let i=0; i < arr.length; i++) {
+                sum += arr[i][j];
+            }
+            if (sum === 0) {
+                toCol--;
+            } else {
+                break;
+            }
+        }
+        const countCol = toCol - fromCol;
+
+        const originTensorSmallCroped = originTensor.slice([fromRow, fromCol], [countRow, countCol]);
+        // originTensorSmallCroped.print();
+        const baseDim = Math.max(countRow, countCol);
+        const padTop = Math.ceil((baseDim - countRow)/2),
+                padBottom = baseDim - countRow - padTop,
+                padLeft = Math.ceil((baseDim - countCol)/2),
+                padRight = baseDim - countCol - padLeft;
+        const originTensorSmallCentered = originTensorSmallCroped.pad([[padTop, padBottom], [padLeft, padRight]]); // [Y], [X]
+        // originTensorSmallCentered.print();
+
+        const originTensorSmallGrayPrep = originTensorSmallCentered.expandDims(-1);  
+
+        return originTensorSmallGrayPrep;
     },
 
     prepareImageTensor (tensor) {   
@@ -77,65 +154,8 @@ export default {
             const originTensorSmall = tf.image.resizeNearestNeighbor(tensor, imageSmallSize);
             const originTensorSmallGray = originTensorSmall.mean(2).toFloat();  
             // originTensorSmallGray.print();
-            const arr = originTensorSmallGray.arraySync();
-            let fromRow = 0;
-            for (let i=0; i < arr.length; i++) {
-                const sum = arr[i].reduce((a, b) => a + b, 0);  
-                if (sum === 0) {
-                    fromRow++;
-                } else {
-                    break;
-                }
-            }           
-            let toRow = arr.length;                      
-            for (let i=arr.length-1; i > 0; i--) {
-                const sum = arr[i].reduce((a, b) => a + b, 0);  
-                if (sum === 0) {
-                    toRow--;
-                } else {
-                    break;
-                }
-            }
-            const countRow = toRow - fromRow;
-
-            const colsCount = arr[0].length;
-            let fromCol = 0;
-            for (let j=0; j < colsCount; j++) {        
-                let sum = 0;
-                for (let i=0; i < arr.length; i++) {
-                    sum += arr[i][j];
-                }
-                if (sum === 0) {
-                    fromCol++;
-                } else {
-                    break;
-                }
-            }
-            let toCol = colsCount;
-            for (let j=colsCount-1; j > 0; j--) {        
-                let sum = 0;
-                for (let i=0; i < arr.length; i++) {
-                    sum += arr[i][j];
-                }
-                if (sum === 0) {
-                    toCol--;
-                } else {
-                    break;
-                }
-            }
-            const countCol = toCol - fromCol;
-
-            const originTensorSmallCroped = originTensorSmallGray.slice([fromRow, fromCol], [countRow, countCol]);
-            // originTensorSmallCroped.print();
-            const baseDim = Math.max(countRow, countCol);
-            const padTop = Math.ceil((baseDim - countRow)/2),
-                  padBottom = baseDim - countRow - padTop,
-                  padLeft = Math.ceil((baseDim - countCol)/2),
-                  padRight = baseDim - countCol - padLeft;
-            const originTensorSmallCentered = originTensorSmallCroped.pad([[padTop, padBottom], [padLeft, padRight]]); // [Y], [X]
-            // originTensorSmallCentered.print();
-
-            const originTensorSmallGrayPrep = originTensorSmallCentered.expandDims(-1);    
+              
+            const originTensorSmallGrayPrep = this.cropAndCenterImageTensor(originTensorSmallGray);
 
             const rgbTensor = tf.image.grayscaleToRGB(originTensorSmallGrayPrep);
 
@@ -154,6 +174,24 @@ export default {
             const rgbTensorFited = tf.image.grayscaleToRGB(tf.tensor(arrFitted).expandDims(-1));
 
             return rgbTensorFited;
+        })
+
+        return originTensorSmallRgb;
+    },  
+
+    prepareImageTensorCNN (tensor) {   
+        const originTensorSmallRgb = tf.tidy(() => {                        
+            const originTensorSmall = tf.image.resizeNearestNeighbor(tensor, imageSmallCNNSize);    
+
+            const originTensorSmallGray = originTensorSmall.mean(2).toFloat();  
+            
+            const originTensorSmallGrayPrep = this.cropAndCenterImageTensor(originTensorSmallGray);
+
+            const rgbTensor = tf.image.grayscaleToRGB(originTensorSmallGrayPrep);
+
+            const fittedTensor = tf.image.resizeBilinear(rgbTensor, imageSmallCNNSize);
+
+            return fittedTensor;
         })
 
         return originTensorSmallRgb;

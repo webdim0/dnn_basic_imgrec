@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import imageOperator from './app/services/imageOperator.js';
 import neuralNetwork from './app/services/neuralNetwork.js';
+import neuralNetworkCNN from './app/services/neuralNetworkCNN.js';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -17,17 +18,18 @@ const __dirname = path.dirname(__filename);
 
 const imgsDir = path.resolve(__dirname, `./public/${process.env.IMGS_DIR}`);
 
-const imgName = '3.41745619636288733.png';
-imageOperator.saveForDataset(imgName);
+// const imgName = '3.41745619636288733.png';
+// imageOperator.saveForDataset(imgName);
 
-// const imageNamesP = [];
-// fs.readdirSync(`${imgsDir}/origin/`).forEach(file => {
-//   const imgName = imageOperator.saveForDataset(file);
-//   imageNamesP.push(imgName);
-// });
+const imageNamesP = [];
+fs.readdirSync(`${imgsDir}/origin/`).forEach(file => {
+  const imgName = imageOperator.saveForDataset(file);
+  imageNamesP.push(imgName);
+});
 
-// const imageNames = await Promise.all(imageNamesP);
+const imageNames = await Promise.all(imageNamesP);
 
-// console.log(imageNames);
+console.log(imageNames);
 
-// neuralNetwork.train();
+ neuralNetwork.train();
+// neuralNetworkCNN.train();

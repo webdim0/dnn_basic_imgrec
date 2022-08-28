@@ -8,4 +8,4 @@ To run the project:
 
 `node index.js`
 
-Client side for this project is in the same repository in 'client' folder.
+Client side for this project is in the same repository in 'client-sk' folder or'client' for prev version without CNN.

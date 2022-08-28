@@ -18,6 +18,7 @@ const imageSmallSize = process.env.IMAGE_SMALL_SIZE.split(' ');
 const tenzorSize = imageSmallSize[0]*imageSmallSize[1];
 const MAX_IMG_CODE = 255;
 const NUM_IMG_CLASSES = 10;
+const BATCH_SIZE = 10;
 
 export default {
     async predict (imgFileName) {        
@@ -42,26 +43,6 @@ export default {
             });
         });           
     },
-
-    async saveForDataset (imgFileName) {        
-        
-        const originImage = fs.readFileSync(`${imgsDir}/origin/${imgFileName}`)        
-
-        tf.tidy(() => {            
-            const originTensor = tf.node.decodePng(originImage);
-            const originTensorSmall = tf.image.resizeNearestNeighbor(originTensor, imageSmallSize);
-            const originTensorSmallGray = originTensorSmall.mean(2).toFloat();
-            const originTensorSmallGrayPrep = originTensorSmallGray.expandDims(-1);
-            const originTensorSmallRgb = tf.image.grayscaleToRGB(originTensorSmallGrayPrep);              
-            tf.node.encodePng(originTensorSmallRgb).then( savePng => {
-                fs.writeFile(`${imgsDir}/prepared/${imgFileName}`, savePng, err => {
-                    if (err) console.log(err);                    
-                });
-            });
-        })
-
-        return imgFileName;
-    },    
 
     async train () {
         const model = tf.sequential();
@@ -93,14 +74,18 @@ export default {
             })
         }
         
-        const xsT = tf.tensor2d(xs).div(tf.scalar(MAX_IMG_CODE));
-        const ysT = tf.tensor2d(ys, [ys.length, 1]);
+        const trainXs = tf.tensor2d(xs).div(tf.scalar(MAX_IMG_CODE));
+        const trainYs = tf.tensor2d(ys, [ys.length, 1]);
         
-        // Train the model using the data.
-        for (let i = 1; i < 50 ; ++i) {            
-            const h = await model.fit(xsT, ysT);
-            console.log("Loss after Epoch " + i + " : " + h.history.loss[0]);            
-        }
+        console.time('dnn-train-time');
+        const m = await model.fit(trainXs, trainYs, {
+            batchSize: BATCH_SIZE,                    
+            // validationData: [testXs, testYs],
+            epochs: 20,
+            shuffle: true,
+            // callbacks: fitCallbacks
+        });
+        console.timeEnd('dnn-train-time');
 
         model.save(`file://${tfModelDir}`);
     }

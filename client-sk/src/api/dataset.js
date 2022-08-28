@@ -89,3 +89,18 @@ export const train = async () => {
         }
     };
 }
+
+export const trainCNN = async () => {    
+    const response = await fetch(`${apiUrl}/neural-network/train-cnn`, {
+        method: 'POST',            
+        headers                              
+    });
+    const json = await response.json();    
+
+    return {
+        status: response.status,
+        data: {
+            json
+        }
+    };
+}
